@@ -6,14 +6,17 @@
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
         body { font-family: -apple-system, "微軟正黑體", sans-serif; background: #f4f7f9; padding: 20px; }
-        .container { max-width: 600px; margin: auto; background: white; padding: 25px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
-        h2 { text-align: center; color: #333; margin-bottom: 20px; }
-        .card { background: #fff; border: 1px solid #f0f0f0; border-radius: 10px; padding: 20px; margin-bottom: 20px; }
-        .title { font-size: 14px; font-weight: bold; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+        .container { max-width: 700px; margin: auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
+        h2 { text-align: center; color: #333; margin-bottom: 25px; }
+        .card { background: #fff; border: 1px solid #f0f0f0; border-radius: 10px; padding: 25px; margin-bottom: 25px; }
+        .title { font-size: 15px; font-weight: bold; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 10px; display: flex; align-items: center; }
         .data-box { display: flex; justify-content: space-around; text-align: center; }
-        .val { font-size: 30px; font-weight: bold; color: #1a73e8; }
-        .setting-line { display: flex; justify-content: space-between; font-size: 13px; margin: 8px 0; color: #666; }
-        #diag-box { text-align: center; padding: 25px; border-radius: 10px; background: #f8f9fa; font-weight: bold; font-size: 20px; border: 2px solid #eee; transition: 0.3s; color: #999; }
+        .val-container { flex: 1; }
+        .val { font-size: 32px; font-weight: bold; color: #1a73e8; }
+        .unit { font-size: 16px; color: #333; margin-left: 5px; }
+        .label { font-size: 13px; color: #888; margin-bottom: 10px; display: block; }
+        .setting-line { display: flex; justify-content: space-between; font-size: 14px; margin: 12px 0; color: #444; }
+        #diag-box { text-align: center; padding: 30px; border-radius: 10px; background: #f8f9fa; font-weight: bold; font-size: 22px; border: 1px solid #eee; transition: 0.3s; }
     </style>
 </head>
 <body>
@@ -24,13 +27,19 @@
     <div class="card">
         <div class="title">📊 即時量測值</div>
         <div class="data-box">
-            <div><span style="font-size:12px; color:#888;">水位高度</span><br><span id="w-val" class="val">--</span><small> cm</small></div>
-            <div><span style="font-size:12px; color:#888;">理論流速</span><br><span id="f-val" class="val">--</span><small> cm/min</small></div>
+            <div class="val-container">
+                <span class="label">水位高度</span>
+                <span id="w-val" class="val">--</span><span class="unit">cm</span>
+            </div>
+            <div class="val-container">
+                <span class="label">理論流速</span>
+                <span id="f-val" class="val">--</span><span class="unit">cm/min</span>
+            </div>
         </div>
     </div>
 
     <div class="card">
-        <div class="title">⚙️ 判定堵塞</div>
+        <div class="title">⚙️ 判定邏輯設定</div>
         <div class="setting-line"><span>總高設定值</span> <span>80 cm</span></div>
         <div class="setting-line"><span>堵塞警示條件</span> <span style="color:#fa8c16;">流速 < 4800 且 水位 ≥ 26.6cm</span></div>
         <div class="setting-line"><span>湍急警示條件</span> <span style="color:#f5222d;">流速 > 18000</span></div>
@@ -38,20 +47,21 @@
 
     <div class="card">
         <div class="title">🚨 系統診斷結果</div>
-        <div id="diag-box">🏮 系統沒連到</div>
+        <div id="diag-box" style="color:#999;">🏮 系統沒連到</div>
     </div>
 </div>
 
 <script>
+    // 曼寧公式設定
     const n = 0.03, S = 0.001;
     const client = mqtt.connect('ws://broker.hivemq.com:8000/mqtt');
     let offlineTimer;
 
-    const updateStatus = (text, color, border) => {
+    const setDiag = (text, color, border) => {
         const box = document.getElementById("diag-box");
         box.innerText = text;
         box.style.color = color;
-        box.style.borderColor = border;
+        box.style.borderColor = border || "#eee";
     };
 
     client.on('connect', () => { 
@@ -64,7 +74,7 @@
         const h_cm = parseFloat(msg.toString());
         const h_m = h_cm / 100;
         
-        // 曼寧公式計算 (V 單位轉換為 cm/min)
+        // 曼寧公式計算 (結果轉為 cm/min)
         let V_cm_min = 0;
         if (h_m > 0) {
             let Rh = h_m * 0.5;
@@ -75,23 +85,20 @@
         document.getElementById("w-val").innerText = h_cm.toFixed(1);
         document.getElementById("f-val").innerText = V_cm_min;
 
-        // --- 四種狀態診斷邏輯修正 ---
+        // --- 四種狀態診斷邏輯 ---
         if (h_cm >= 26.6 && V_cm_min < 4800) {
-            // 狀態 1: 堵塞 (水位夠高但流速太低)
-            updateStatus("❌ 偵測到管路堵塞", "#fa8c16", "#fa8c16");
+            setDiag("❌ 偵測到管路堵塞", "#fa8c16", "#fa8c16");
         } 
         else if (V_cm_min > 18000) {
-            // 狀態 2: 湍急
-            updateStatus("⚠️ 偵測到水流湍急", "#f5222d", "#f5222d");
+            setDiag("⚠️ 偵測到水流湍急", "#f5222d", "#f5222d");
         } 
         else {
-            // 狀態 3: 無異常
-            updateStatus("✅ 系統連線中無異常現象", "#52c41a", "#52c41a");
+            setDiag("✅ 系統連線中無異常現象", "#52c41a", "#52c41a");
         }
 
-        // 狀態 4: 系統沒連到 (3秒沒收到資料觸發)
+        // 3秒斷線判定
         offlineTimer = setTimeout(() => {
-            updateStatus("🏮 系統沒連到", "#999", "#eee");
+            setDiag("🏮 系統沒連到", "#999", "#eee");
             document.getElementById("w-val").innerText = "--";
             document.getElementById("f-val").innerText = "--";
         }, 3000);
