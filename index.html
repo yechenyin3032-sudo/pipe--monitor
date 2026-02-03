@@ -3,94 +3,62 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🌊 管路監測系統 Pro (MQTT 雲端版)</title>
+    <title>🌊 管路監測系統 Pro</title>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; text-align: center; }
-        .container { max-width: 600px; margin: auto; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
-        h1 { color: #1a73e8; font-size: 24px; }
-        .data-box { display: flex; justify-content: space-around; margin: 25px 0; }
-        .card { flex: 1; margin: 10px; padding: 20px; background: #f8f9fa; border-radius: 15px; border-top: 5px solid #1a73e8; }
-        .value { font-size: 32px; font-weight: bold; color: #202124; display: block; }
-        .label { color: #5f6368; font-size: 14px; }
-        #status-indicator { display: inline-block; padding: 5px 15px; border-radius: 20px; font-size: 13px; font-weight: bold; background: #fee; color: #d93025; transition: 0.3s; }
-        .diagnosis { margin-top: 20px; padding: 15px; border-radius: 10px; background: #e8f0fe; color: #1967d2; font-weight: bold; }
-        hr { border: 0; border-top: 1px solid #eee; margin: 20px 0; }
+        body { font-family: sans-serif; background-color: #f0f2f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .container { background: white; padding: 40px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); width: 90%; max-width: 500px; text-align: center; }
+        h1 { color: #1a73e8; margin-bottom: 5px; }
+        #status-tag { display: inline-block; padding: 5px 15px; border-radius: 20px; font-size: 14px; background: #fff1f0; color: #cf1322; margin-bottom: 20px; }
+        .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 20px 0; }
+        .card { background: #f8f9fa; padding: 20px; border-radius: 15px; border-top: 4px solid #1a73e8; }
+        .val { font-size: 32px; font-weight: bold; display: block; margin: 10px 0; }
+        .diagnosis { background: #e8f0fe; padding: 15px; border-radius: 10px; font-weight: bold; color: #1967d2; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <h1>🌊 管路監測系統 Pro</h1>
-    <div id="status-indicator">● 雲端嘗試連線中...</div>
-    
-    <div class="data-box">
+    <div id="status-tag">● 雲端嘗試連線中...</div>
+
+    <div class="data-grid">
         <div class="card">
-            <span class="label">目前水位</span>
-            <span id="water-level-val" class="value">--</span>
-            <span class="label">cm</span>
+            <span style="color: #5f6368;">目前水位</span>
+            <span id="w-val" class="val">--</span>
+            <span style="color: #5f6368;">cm</span>
         </div>
         <div class="card">
-            <span class="label">預估流速</span>
-            <span id="flow-rate-val" class="value">0.00</span>
-            <span class="label">m/s</span>
+            <span style="color: #5f6368;">預估流速</span>
+            <span class="val">0.00</span>
+            <span style="color: #5f6368;">m/s</span>
         </div>
     </div>
 
     <div class="diagnosis">
-        系統診斷結果：<span id="diag-result">等待數據中...</span>
-    </div>
-    
-    <hr>
-    <div style="font-size: 12px; color: #999;">
-        連線方式：MQTT Broker (HiveMQ)<br>
-        監聽頻道：yechenyin3032/water_data
+        系統診斷結果：<span id="d-msg">等待數據中...</span>
     </div>
 </div>
 
 <script>
-    // 2. 設定 MQTT 參數 (必須與 ESP32 的 Topic 一致)
-    const mqttServer = 'ws://broker.hivemq.com:8000/mqtt'; 
-    const topic = 'yechenyin3032/water_data';
-
-    // 3. 開始連線
-    const client = mqtt.connect(mqttServer);
+    const client = mqtt.connect('ws://broker.hivemq.com:8000/mqtt');
+    const myTopic = "yechenyin3032/water_data";
 
     client.on('connect', () => {
-        console.log("✅ 成功連線到 MQTT 伺服器");
-        client.subscribe(topic);
-        const indicator = document.getElementById("status-indicator");
-        indicator.innerText = "● 雲端同步中 (不限網域)";
-        indicator.style.background = "#e6f4ea";
-        indicator.style.color = "#137333";
+        client.subscribe(myTopic);
+        const tag = document.getElementById("status-tag");
+        tag.innerText = "● 雲端即時連線中";
+        tag.style.background = "#f6ffed";
+        tag.style.color = "#389e0d";
     });
 
-    client.on('message', (t, message) => {
-        try {
-            // 4. 解析來自 ESP32 的 JSON 數據
-            const data = JSON.parse(message.toString());
-            console.log("收到數據:", data);
-
-            // 更新網頁顯示
-            document.getElementById("water-level-val").innerText = data.level;
-            document.getElementById("diag-result").innerText = data.msg;
-            
-            // 如果水位高於 26.6cm，診斷結果變紅
-            const diagBox = document.getElementById("diag-result");
-            if (parseFloat(data.level) >= 26.6) {
-                diagBox.style.color = "#d93025";
-            } else {
-                diagBox.style.color = "#1967d2";
-            }
-
-        } catch (e) {
-            console.error("解析失敗:", e);
-        }
-    });
-
-    client.on('error', (err) => {
-        console.error("MQTT 連線錯誤:", err);
-        document.getElementById("status-indicator").innerText = "● 連線失敗";
+    client.on('message', (topic, message) => {
+        const data = JSON.parse(message.toString());
+        document.getElementById("w-val").innerText = data.level;
+        document.getElementById("d-msg").innerText = data.msg;
+        
+        // 如果水位高於 26.6cm (1/3 高) 變色提醒
+        document.getElementById("d-msg").style.color = (parseFloat(data.level) >= 26.6) ? "#d93025" : "#1967d2";
     });
 </script>
 
