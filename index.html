@@ -2,35 +2,52 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>水溝監測 Pro - 修正版</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>水溝監測 Pro - 最終修正版</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
     <style>
-        body { font-family: "微軟正黑體", sans-serif; background: #f4f7f9; padding: 20px; text-align: center; }
-        .container { max-width: 650px; margin: auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
-        .card { background: #fff; border: 1px solid #f0f0f0; border-radius: 10px; padding: 20px; margin-bottom: 20px; text-align: left; }
-        .title { font-size: 16px; font-weight: bold; margin-bottom: 15px; border-bottom: 2px solid #1a73e8; padding-bottom: 5px; }
-        .data-display { display: flex; justify-content: space-around; text-align: center; }
-        .num { font-size: 36px; font-weight: bold; color: #1a73e8; }
-        .unit { font-size: 18px; color: #333; font-weight: bold; margin-left: 5px; }
-        #diag-box { padding: 25px; border-radius: 10px; background: #eee; font-weight: bold; font-size: 22px; border: 2px solid #ccc; margin-top: 10px; }
-        .status-bar { font-size: 12px; color: #888; margin-bottom: 10px; }
+        body { font-family: "微軟正黑體", "Segoe UI", sans-serif; background: #f4f7f9; padding: 20px; text-align: center; color: #333; }
+        .container { max-width: 650px; margin: auto; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); }
+        .card { background: #fff; border: 1px solid #f0f0f0; border-radius: 12px; padding: 20px; margin-bottom: 20px; text-align: left; position: relative; }
+        .title { font-size: 16px; font-weight: bold; margin-bottom: 15px; border-left: 4px solid #1a73e8; padding-left: 10px; color: #1a73e8; }
+        
+        /* 數值顯示區 */
+        .data-display { display: flex; justify-content: space-around; text-align: center; padding: 10px 0; }
+        .num-group { flex: 1; }
+        .num { font-size: 42px; font-weight: 800; color: #1a73e8; display: inline-block; }
+        .unit { font-size: 18px; color: #666; font-weight: bold; margin-left: 5px; }
+        .label { color: #888; font-size: 14px; margin-bottom: 8px; }
+
+        /* 診斷方塊 */
+        #diag-box { 
+            padding: 30px; border-radius: 12px; background: #f8f9fa; 
+            font-weight: bold; font-size: 24px; border: 2px solid #ddd; 
+            margin-top: 15px; transition: all 0.3s ease;
+        }
+        
+        .status-bar { font-size: 13px; color: #999; margin-bottom: 15px; display: flex; justify-content: center; align-items: center; gap: 8px; }
+        .dot { height: 8px; width: 8px; background: #bbb; border-radius: 50%; }
+        .dot.online { background: #2ecc71; box-shadow: 0 0 8px #2ecc71; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>🌊 水溝監測 Pro</h2>
-    <div id="status-text" class="status-bar">正在連接系統...</div>
+    <h2 style="margin-bottom: 5px;">🌊 水溝流量即時監測</h2>
+    <div class="status-bar">
+        <div id="status-dot" class="dot"></div>
+        <span id="status-text">系統連線中...</span>
+    </div>
 
     <div class="card">
-        <div class="title">📊 即時量測值</div>
+        <div class="title">📊 即時量測數據</div>
         <div class="data-display">
-            <div>
-                <div style="color:#888;">目前水位</div>
+            <div class="num-group">
+                <div class="label">目前水位</div>
                 <span id="w-num" class="num">--</span><span class="unit">cm</span>
             </div>
-            <div>
-                <div style="color:#888;">理論流速</div>
+            <div class="num-group">
+                <div class="label">理論流速</div>
                 <span id="f-num" class="num">--</span><span class="unit">cm/min</span>
             </div>
         </div>
@@ -38,10 +55,10 @@
 
     <div class="card">
         <div class="title">⚙️ 判定邏輯設定</div>
-        <div style="font-size:14px; line-height:2;">
-            <div>總高設定值：<b>80 cm</b></div>
-            <div style="color:orange;">堵塞警示：流速 < 4800 且 水位 ≥ 26.6cm</div>
-            <div style="color:red;">湍急警示：流速 > 18000</div>
+        <div style="font-size:15px; line-height:1.8; color: #555;">
+            <div style="display:flex; justify-content:space-between;"><span>總高設定值：</span><b>80 cm</b></div>
+            <div style="display:flex; justify-content:space-between; color:orange;"><span>堵塞警示：</span><b>流速 < 4800 且 水位 ≥ 26.6cm</b></div>
+            <div style="display:flex; justify-content:space-between; color:red;"><span>湍急警示：</span><b>流速 > 18000 cm/min</b></div>
         </div>
     </div>
 
@@ -49,54 +66,71 @@
 </div>
 
 <script>
+    // --- MQTT 設定 (必須與 Arduino 一致) ---
     const mqtt_broker = "broker.emqx.io";
-    const mqtt_port = 8084;
+    const mqtt_port = 8084; // WSS 端口
     const mqtt_topic = "my_ditch_project/data";
-    const client_id = "Web_" + Math.random().toString(16).substr(2, 8);
+    const client_id = "Web_User_" + Math.random().toString(16).substr(2, 5);
     
     const client = new Paho.MQTT.Client(mqtt_broker, mqtt_port, client_id);
     let watchDog;
 
+    // 連線設定
     client.connect({
         useSSL: true,
         onSuccess: () => {
-            document.getElementById("status-text").innerText = "● 系統已連線";
+            document.getElementById("status-text").innerText = "系統已連線";
+            document.getElementById("status-dot").classList.add("online");
             client.subscribe(mqtt_topic);
         },
-        onFailure: () => { document.getElementById("status-text").innerText = "● 連線失敗"; }
+        onFailure: () => { 
+            document.getElementById("status-text").innerText = "連線失敗，請檢查網路";
+        }
     });
 
+    // 接收訊息處理
     client.onMessageArrived = (message) => {
         clearTimeout(watchDog);
         try {
+            // 解析 Arduino 傳來的 JSON
             const data = JSON.parse(message.payloadString);
-            const h = data.level;
-            const f = data.flow;
+            const h = data.level;      // 水位
+            const f = data.flow;       // 流速
+            const d = data.distance;   // 距離 (可視需求顯示)
 
-            // 更新數字 (單位 cm 和 cm/min 已在 HTML 寫死，不會被覆蓋)
+            // 更新數字 (單位 cm / cm/min 寫在 HTML 裡不會被蓋掉)
             document.getElementById("w-num").innerText = h.toFixed(1);
-            document.getElementById("f-num").innerText = f;
+            document.getElementById("f-num").innerText = Math.round(f);
 
             const box = document.getElementById("diag-box");
+            
+            // 狀態判定邏輯
             if (h >= 26.6 && f < 4800) {
                 box.innerText = "❌ 偵測到管路堵塞";
-                box.style.color = "orange"; box.style.background = "#fff3e0"; box.style.borderColor = "orange";
+                box.style.color = "#d35400"; box.style.background = "#fff3e0"; box.style.borderColor = "orange";
             } else if (f > 18000) {
                 box.innerText = "⚠️ 偵測到水流湍急";
-                box.style.color = "red"; box.style.background = "#ffebee"; box.style.borderColor = "red";
+                box.style.color = "#c0392b"; box.style.background = "#ffebee"; box.style.borderColor = "red";
             } else {
                 box.innerText = "✅ 系統正常無異常";
-                box.style.color = "green"; box.style.background = "#e8f5e9"; box.style.borderColor = "green";
+                box.style.color = "#27ae60"; box.style.background = "#e8f5e9"; box.style.borderColor = "green";
             }
-        } catch (e) { console.error("解析失敗", e); }
+        } catch (e) { 
+            console.error("JSON 解析錯誤:", e); 
+        }
 
+        // 5秒沒收到新數據則顯示斷線
         watchDog = setTimeout(() => {
-            document.getElementById("diag-box").innerText = "🏮 系統沒連到";
-            document.getElementById("diag-box").style.background = "#eee";
+            document.getElementById("diag-box").innerText = "🏮 系統資料超時";
+            document.getElementById("diag-box").style.background = "#f8f9fa";
+            document.getElementById("diag-box").style.color = "#999";
         }, 5000);
     };
 
-    client.onConnectionLost = () => { document.getElementById("status-text").innerText = "● 連線已中斷"; };
+    client.onConnectionLost = (response) => {
+        document.getElementById("status-text").innerText = "連線已中斷";
+        document.getElementById("status-dot").classList.remove("online");
+    };
 </script>
 </body>
 </html>
