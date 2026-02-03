@@ -9,14 +9,13 @@
         .container { max-width: 700px; margin: auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
         h2 { text-align: center; color: #333; margin-bottom: 25px; }
         .card { background: #fff; border: 1px solid #f0f0f0; border-radius: 10px; padding: 25px; margin-bottom: 25px; }
-        .title { font-size: 15px; font-weight: bold; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 10px; display: flex; align-items: center; }
+        .title { font-size: 15px; font-weight: bold; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
         .data-box { display: flex; justify-content: space-around; text-align: center; }
-        .val-container { flex: 1; }
         .val { font-size: 32px; font-weight: bold; color: #1a73e8; }
-        .unit { font-size: 16px; color: #333; margin-left: 5px; }
-        .label { font-size: 13px; color: #888; margin-bottom: 10px; display: block; }
+        .unit-label { font-size: 14px; color: #333; margin-left: 5px; font-weight: normal; }
+        .label-text { font-size: 13px; color: #888; margin-bottom: 10px; display: block; }
         .setting-line { display: flex; justify-content: space-between; font-size: 14px; margin: 12px 0; color: #444; }
-        #diag-box { text-align: center; padding: 30px; border-radius: 10px; background: #f8f9fa; font-weight: bold; font-size: 22px; border: 1px solid #eee; transition: 0.3s; }
+        #diag-box { text-align: center; padding: 30px; border-radius: 10px; background: #f8f9fa; font-weight: bold; font-size: 22px; border: 1px solid #eee; transition: 0.3s; color: #999; }
     </style>
 </head>
 <body>
@@ -27,13 +26,13 @@
     <div class="card">
         <div class="title">📊 即時量測值</div>
         <div class="data-box">
-            <div class="val-container">
-                <span class="label">水位高度</span>
-                <span id="w-val" class="val">--</span><span class="unit">cm</span>
+            <div>
+                <span class="label-text">水位高度</span>
+                <span id="w-val" class="val">--</span><span class="unit-label">cm</span>
             </div>
-            <div class="val-container">
-                <span class="label">理論流速</span>
-                <span id="f-val" class="val">--</span><span class="unit">cm/min</span>
+            <div>
+                <span class="label-text">理論流速</span>
+                <span id="f-val" class="val">--</span><span class="unit-label">cm/min</span>
             </div>
         </div>
     </div>
@@ -47,34 +46,21 @@
 
     <div class="card">
         <div class="title">🚨 系統診斷結果</div>
-        <div id="diag-box" style="color:#999;">🏮 系統沒連到</div>
+        <div id="diag-box">🏮 系統沒連到</div>
     </div>
 </div>
 
 <script>
-    // 曼寧公式設定
     const n = 0.03, S = 0.001;
     const client = mqtt.connect('ws://broker.hivemq.com:8000/mqtt');
     let offlineTimer;
 
-    const setDiag = (text, color, border) => {
-        const box = document.getElementById("diag-box");
-        box.innerText = text;
-        box.style.color = color;
-        box.style.borderColor = border || "#eee";
-    };
-
-    client.on('connect', () => { 
-        client.subscribe('yechenyin3032/water_data'); 
-    });
+    client.on('connect', () => { client.subscribe('yechenyin3032/water_data'); });
 
     client.on('message', (t, msg) => {
         clearTimeout(offlineTimer);
-        
         const h_cm = parseFloat(msg.toString());
         const h_m = h_cm / 100;
-        
-        // 曼寧公式計算 (結果轉為 cm/min)
         let V_cm_min = 0;
         if (h_m > 0) {
             let Rh = h_m * 0.5;
@@ -85,20 +71,18 @@
         document.getElementById("w-val").innerText = h_cm.toFixed(1);
         document.getElementById("f-val").innerText = V_cm_min;
 
-        // --- 四種狀態診斷邏輯 ---
+        const box = document.getElementById("diag-box");
+        // 四種狀態邏輯
         if (h_cm >= 26.6 && V_cm_min < 4800) {
-            setDiag("❌ 偵測到管路堵塞", "#fa8c16", "#fa8c16");
-        } 
-        else if (V_cm_min > 18000) {
-            setDiag("⚠️ 偵測到水流湍急", "#f5222d", "#f5222d");
-        } 
-        else {
-            setDiag("✅ 系統連線中無異常現象", "#52c41a", "#52c41a");
+            box.innerText = "❌ 偵測到管路堵塞"; box.style.color = "#fa8c16"; box.style.borderColor = "#fa8c16";
+        } else if (V_cm_min > 18000) {
+            box.innerText = "⚠️ 偵測到水流湍急"; box.style.color = "#f5222d"; box.style.borderColor = "#f5222d";
+        } else {
+            box.innerText = "✅ 系統連線中無異常現象"; box.style.color = "#52c41a"; box.style.borderColor = "#52c41a";
         }
 
-        // 3秒斷線判定
         offlineTimer = setTimeout(() => {
-            setDiag("🏮 系統沒連到", "#999", "#eee");
+            box.innerText = "🏮 系統沒連到"; box.style.color = "#999"; box.style.borderColor = "#eee";
             document.getElementById("w-val").innerText = "--";
             document.getElementById("f-val").innerText = "--";
         }, 3000);
