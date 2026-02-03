@@ -2,7 +2,6 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>水溝監測 Pro</title>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
@@ -11,12 +10,12 @@
         .card { background: #fff; border: 1px solid #f0f0f0; border-radius: 10px; padding: 20px; margin-bottom: 20px; }
         .title { font-size: 16px; font-weight: bold; margin-bottom: 15px; border-bottom: 2px solid #1a73e8; padding-bottom: 5px; }
         .data-box { display: flex; justify-content: space-around; text-align: center; }
-        /* 重點：數字樣式 */
-        .value-num { font-size: 36px; font-weight: bold; color: #1a73e8; }
-        /* 重點：單位樣式 (固定不動) */
-        .fixed-unit { font-size: 18px; color: #333; font-weight: bold; margin-left: 5px; }
+        /* 數字樣式：JavaScript 僅更新這裡 */
+        .val-num { font-size: 36px; font-weight: bold; color: #1a73e8; }
+        /* 單位樣式：固定不動 */
+        .unit-fixed { font-size: 18px; color: #333; font-weight: bold; margin-left: 5px; }
         .setting-line { display: flex; justify-content: space-between; margin: 10px 0; font-size: 14px; }
-        #diag-box { text-align: center; padding: 25px; border-radius: 10px; background: #eee; font-weight: bold; font-size: 22px; border: 2px solid #ccc; transition: 0.3s; }
+        #diag-box { text-align: center; padding: 25px; border-radius: 10px; background: #eee; font-weight: bold; font-size: 22px; border: 2px solid #ccc; }
     </style>
 </head>
 <body>
@@ -29,11 +28,11 @@
         <div class="data-box">
             <div>
                 <div style="color:#888;">水位高度</div>
-                <span id="w-num" class="value-num">--</span><span class="fixed-unit">cm</span>
+                <span id="w-num" class="val-num">--</span><span class="unit-fixed">cm</span>
             </div>
             <div>
                 <div style="color:#888;">理論流速</div>
-                <span id="f-num" class="value-num">--</span><span class="fixed-unit">cm/min</span>
+                <span id="f-num" class="val-num">--</span><span class="unit-fixed">cm/min</span>
             </div>
         </div>
     </div>
@@ -53,16 +52,21 @@
 
 <script>
     const n = 0.03, S = 0.001;
+    // 連接 MQTT 伺服器
     const client = mqtt.connect('ws://broker.hivemq.com:8000/mqtt');
-    let watchDog;
+    let timer;
 
-    client.on('connect', () => { client.subscribe('yechenyin3032/water_data'); });
+    client.on('connect', () => {
+        client.subscribe('yechenyin3032/water_data');
+        console.log("MQTT 已連線");
+    });
 
     client.on('message', (topic, message) => {
-        clearTimeout(watchDog);
+        clearTimeout(timer);
         const h_cm = parseFloat(message.toString());
         const h_m = h_cm / 100;
 
+        // 流速計算
         let v_cm_min = 0;
         if (h_m > 0) {
             let Rh = h_m * 0.5;
@@ -70,34 +74,30 @@
             v_cm_min = Math.round(v_m_s * 100 * 60);
         }
 
-        // --- 核心修正：只更新數字部分的 ID，後面的單位標籤不會被覆蓋 ---
+        // 僅更新數字 ID，單位 label 就不會被覆蓋
         document.getElementById("w-num").innerText = h_cm.toFixed(1);
         document.getElementById("f-num").innerText = v_cm_min;
 
         const box = document.getElementById("diag-box");
-        
-        // --- 四種狀態診斷邏輯 ---
+        // 診斷邏輯
         if (h_cm >= 26.6 && v_cm_min < 4800) {
-            // 狀態 1：堵塞
             box.innerText = "❌ 偵測到管路堵塞";
             box.style.color = "orange"; box.style.background = "#fff3e0"; box.style.borderColor = "orange";
         } else if (v_cm_min > 18000) {
-            // 狀態 2：湍急
             box.innerText = "⚠️ 偵測到水流湍急";
             box.style.color = "red"; box.style.background = "#ffebee"; box.style.borderColor = "red";
         } else {
-            // 狀態 3：正常 (系統連線中)
             box.innerText = "✅ 系統連線中無異常現象";
             box.style.color = "green"; box.style.background = "#e8f5e9"; box.style.borderColor = "green";
         }
 
-        // --- 狀態 4：系統沒連到 (3秒沒收到資料觸發) ---
-        watchDog = setTimeout(() => {
+        // 5秒沒收到視為斷線
+        timer = setTimeout(() => {
             box.innerText = "🏮 系統沒連到";
             box.style.color = "#999"; box.style.background = "#eee"; box.style.borderColor = "#ccc";
             document.getElementById("w-num").innerText = "--";
             document.getElementById("f-num").innerText = "--";
-        }, 3000);
+        }, 5000);
     });
 </script>
 </body>
