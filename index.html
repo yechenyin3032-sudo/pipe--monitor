@@ -6,14 +6,16 @@
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
         body { font-family: "微軟正黑體", sans-serif; background: #f4f7f9; padding: 20px; }
-        .container { max-width: 600px; margin: auto; background: white; padding: 25px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
-        .card { background: #fff; border: 1px solid #f0f0f0; border-radius: 10px; padding: 20px; margin-bottom: 20px; }
-        .title { font-size: 16px; font-weight: bold; margin-bottom: 15px; border-bottom: 2px solid #1a73e8; padding-bottom: 5px; }
+        .container { max-width: 650px; margin: auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        .card { background: #fff; border: 1px solid #f0f0f0; border-radius: 10px; padding: 25px; margin-bottom: 25px; }
+        .title { font-size: 16px; font-weight: bold; margin-bottom: 20px; border-bottom: 2px solid #1a73e8; padding-bottom: 10px; }
         .data-display { display: flex; justify-content: space-around; text-align: center; }
-        .num { font-size: 36px; font-weight: bold; color: #1a73e8; }
-        .unit-fixed { font-size: 18px; color: #333; font-weight: bold; margin-left: 5px; } /* 固定單位樣式 */
-        .setting-line { display: flex; justify-content: space-between; margin: 10px 0; font-size: 14px; }
-        #diag-box { text-align: center; padding: 25px; border-radius: 10px; background: #eee; font-weight: bold; font-size: 22px; border: 2px solid #ccc; }
+        /* 數字樣式 */
+        .num { font-size: 38px; font-weight: bold; color: #1a73e8; }
+        /* 單位樣式：獨立出來，絕對不給 JS 動到 */
+        .unit-label { font-size: 20px; color: #333; font-weight: bold; margin-left: 8px; }
+        .setting-line { display: flex; justify-content: space-between; margin: 12px 0; font-size: 15px; }
+        #diag-box { text-align: center; padding: 30px; border-radius: 10px; background: #eee; font-weight: bold; font-size: 24px; border: 2px solid #ccc; transition: 0.3s; }
     </style>
 </head>
 <body>
@@ -25,12 +27,12 @@
         <div class="title">📊 即時量測值</div>
         <div class="data-display">
             <div>
-                <div style="color:#888;">水位高度</div>
-                <span id="w-val" class="num">--</span><span class="unit-fixed">cm</span>
+                <div style="color:#888; margin-bottom:10px;">水位高度</div>
+                <span id="w-num" class="num">--</span><span class="unit-label">cm</span>
             </div>
             <div>
-                <div style="color:#888;">理論流速</div>
-                <span id="f-val" class="num">--</span><span class="unit-fixed">cm/min</span>
+                <div style="color:#888; margin-bottom:10px;">理論流速</div>
+                <span id="f-num" class="num">--</span><span class="unit-label">cm/min</span>
             </div>
         </div>
     </div>
@@ -38,8 +40,8 @@
     <div class="card">
         <div class="title">⚙️ 判定邏輯設定</div>
         <div class="setting-line"><span>總高設定值</span> <b>80 cm</b></div>
-        <div class="setting-line"><span>堵塞警示條件</span> <span style="color:orange;">流速 < 4800 且 水位 ≥ 26.6cm</span></div>
-        <div class="setting-line"><span>湍急警示條件</span> <span style="color:red;">流速 > 18000</span></div>
+        <div class="setting-line"><span>堵塞警示條件</span> <span style="color:orange; font-weight:bold;">流速 < 4800 且 水位 ≥ 26.6cm</span></div>
+        <div class="setting-line"><span>湍急警示條件</span> <span style="color:red; font-weight:bold;">流速 > 18000</span></div>
     </div>
 
     <div class="card">
@@ -69,11 +71,13 @@
             v_cm_min = Math.round(v_m_s * 100 * 60);
         }
 
-        // 這次只更新數字，不會蓋掉單位
-        document.getElementById("w-val").innerText = h_cm.toFixed(1);
-        document.getElementById("f-val").innerText = v_cm_min;
+        // 重點：只更新數字 ID 的 innerText，後面的單位標籤不會被動到
+        document.getElementById("w-num").innerText = h_cm.toFixed(1);
+        document.getElementById("f-num").innerText = v_cm_min;
 
         const box = document.getElementById("diag-box");
+        
+        // 四種診斷邏輯
         if (h_cm >= 26.6 && v_cm_min < 4800) {
             box.innerText = "❌ 偵測到管路堵塞";
             box.style.color = "orange"; box.style.background = "#fff3e0"; box.style.borderColor = "orange";
@@ -85,11 +89,12 @@
             box.style.color = "green"; box.style.background = "#e8f5e9"; box.style.borderColor = "green";
         }
 
+        // 5秒沒收到數據觸發「系統沒連到」
         watchDog = setTimeout(() => {
             box.innerText = "🏮 系統沒連到";
             box.style.color = "#999"; box.style.background = "#eee"; box.style.borderColor = "#ccc";
-            document.getElementById("w-val").innerText = "--";
-            document.getElementById("f-val").innerText = "--";
+            document.getElementById("w-num").innerText = "--";
+            document.getElementById("f-num").innerText = "--";
         }, 5000);
     });
 </script>
