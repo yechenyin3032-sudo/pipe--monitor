@@ -1,98 +1,88 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-    <meta charset="UTF-8">
-    <title>水溝監測 Pro - 單位修正版</title>
-    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
-    <style>
-        body { font-family: "微軟正黑體", sans-serif; background: #f4f7f9; padding: 20px; }
-        .container { max-width: 600px; margin: auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
-        .card { background: #fff; border: 1px solid #f0f0f0; border-radius: 10px; padding: 25px; margin-bottom: 25px; }
-        .title { font-size: 16px; font-weight: bold; margin-bottom: 20px; border-bottom: 2px solid #1a73e8; padding-bottom: 5px; }
-        .data-display { display: flex; justify-content: space-around; text-align: center; }
-        .num { font-size: 40px; font-weight: bold; color: #1a73e8; }
-        /* 單位專用樣式：絕對獨立 */
-        .unit { font-size: 20px; color: #333; font-weight: bold; margin-left: 10px; }
-        .setting { display: flex; justify-content: space-between; margin: 12px 0; font-size: 15px; }
-        #diag-box { text-align: center; padding: 30px; border-radius: 10px; background: #eee; font-weight: bold; font-size: 24px; border: 2px solid #ccc; }
-    </style>
+<meta charset="UTF-8">
+<title>水流監測 Pro</title>
+
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+
+<style>
+body { font-family: Arial; background:#f4f7f9; padding:20px; }
+.card { background:white; padding:20px; margin-bottom:20px; border-radius:10px; }
+.num { font-size:40px; font-weight:bold; }
+#diag-box { padding:20px; font-size:22px; text-align:center; border-radius:10px; }
+</style>
 </head>
+
 <body>
 
-<div class="container">
-    <h2 style="text-align:center;">🌊 水溝監測 Pro</h2>
+<h2>🌊 水流監測系統</h2>
 
-    <div class="card">
-        <div class="title">📊 即時量測值</div>
-        <div class="data-display">
-            <div>
-                <div style="color:#888; margin-bottom:10px;">水位高度</div>
-                <span id="w-val" class="num">--</span><span class="unit">cm</span>
-            </div>
-            <div>
-                <div style="color:#888; margin-bottom:10px;">理論流速</div>
-                <span id="f-val" class="num">--</span><span class="unit">cm/min</span>
-            </div>
-        </div>
-    </div>
+<div class="card">
+  <div>水位高度</div>
+  <span id="w-val" class="num">--</span> cm
+</div>
 
-    <div class="card">
-        <div class="title">⚙️ 判定邏輯設定</div>
-        <div class="setting"><span>總高設定值</span> <b>80 cm</b></div>
-        <div class="setting"><span>堵塞警示條件</span> <span style="color:orange; font-weight:bold;">流速 < 4800 且 水位 ≥ 26.6cm</span></div>
-        <div class="setting"><span>湍急警示條件</span> <span style="color:red; font-weight:bold;">流速 > 18000</span></div>
-    </div>
+<div class="card">
+  <div>理論流速</div>
+  <span id="f-val" class="num">--</span> cm/min
+</div>
 
-    <div class="card">
-        <div class="title">🚨 系統診斷結果</div>
-        <div id="diag-box">🏮 系統沒連到</div>
-    </div>
+<div class="card">
+  <div id="diag-box">🔴 尚未接收到資料</div>
 </div>
 
 <script>
-    const n = 0.03, S = 0.001;
-    const client = mqtt.connect('ws://broker.hivemq.com:8000/mqtt');
-    let watchDog;
+const n = 0.03;
+const S = 0.001;
 
-    client.on('connect', () => {
-        console.log("連線成功！");
-        client.subscribe('yechenyin3032/water_data');
-    });
+// ⚠️ 關鍵在這一行
+const client = mqtt.connect('wss://broker.hivemq.com:8884/mqtt');
 
-    client.on('message', (topic, msg) => {
-        clearTimeout(watchDog);
-        const h_cm = parseFloat(msg.toString());
-        const h_m = h_cm / 100;
+let watchDog;
 
-        let v_cm_min = 0;
-        if (h_m > 0) {
-            let Rh = h_m * 0.5;
-            let v_m_s = (1.0 / n) * Math.pow(Rh, 2/3) * Math.sqrt(S);
-            v_cm_min = Math.round(v_m_s * 100 * 60);
-        }
+client.on('connect', () => {
+  console.log("✅ Web MQTT 已連線");
+  client.subscribe('yechenyin3032/water_data');
+});
 
-        // 只更新數字部分，不會覆蓋單位文字
-        document.getElementById("w-val").innerText = h_cm.toFixed(1);
-        document.getElementById("f-val").innerText = v_cm_min;
+client.on('message', (topic, msg) => {
+  clearTimeout(watchDog);
 
-        const box = document.getElementById("diag-box");
-        if (h_cm >= 26.6 && v_cm_min < 4800) {
-            box.innerText = "❌ 偵測到管路堵塞";
-            box.style.color = "orange"; box.style.background = "#fff3e0"; box.style.borderColor = "orange";
-        } else if (v_cm_min > 18000) {
-            box.innerText = "⚠️ 偵測到水流湍急";
-            box.style.color = "red"; box.style.background = "#ffebee"; box.style.borderColor = "red";
-        } else {
-            box.innerText = "✅ 系統連線中無異常現象";
-            box.style.color = "green"; box.style.background = "#e8f5e9"; box.style.borderColor = "green";
-        }
+  const h_cm = parseFloat(msg.toString());
+  if (isNaN(h_cm)) return;
 
-        // 5秒沒收到數據才算斷線
-        watchDog = setTimeout(() => {
-            box.innerText = "🏮 系統沒連到";
-            box.style.color = "#999"; box.style.background = "#eee"; box.style.borderColor = "#ccc";
-        }, 5000);
-    });
+  const h_m = h_cm / 100;
+  let v_cm_min = 0;
+
+  if (h_m > 0) {
+    const Rh = h_m * 0.5;
+    const v_m_s = (1 / n) * Math.pow(Rh, 2/3) * Math.sqrt(S);
+    v_cm_min = Math.round(v_m_s * 100 * 60);
+  }
+
+  document.getElementById("w-val").innerText = h_cm.toFixed(1);
+  document.getElementById("f-val").innerText = v_cm_min;
+
+  const box = document.getElementById("diag-box");
+
+  if (h_cm >= 26.6 && v_cm_min < 4800) {
+    box.innerText = "❌ 可能堵塞";
+    box.style.color = "orange";
+  } else if (v_cm_min > 18000) {
+    box.innerText = "⚠️ 水流過快";
+    box.style.color = "red";
+  } else {
+    box.innerText = "✅ 系統正常";
+    box.style.color = "green";
+  }
+
+  watchDog = setTimeout(() => {
+    box.innerText = "🔴 資料中斷";
+    box.style.color = "#999";
+  }, 5000);
+});
 </script>
+
 </body>
 </html>
