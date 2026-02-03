@@ -6,33 +6,31 @@
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
         body { font-family: -apple-system, "微軟正黑體", sans-serif; background: #f4f7f9; padding: 20px; }
-        .container { max-width: 700px; margin: auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
-        h2 { text-align: center; color: #333; margin-bottom: 25px; }
-        .card { background: #fff; border: 1px solid #f0f0f0; border-radius: 10px; padding: 25px; margin-bottom: 25px; }
-        .title { font-size: 15px; font-weight: bold; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        .container { max-width: 650px; margin: auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
+        .card { background: #fff; border: 1px solid #f0f0f0; border-radius: 10px; padding: 20px; margin-bottom: 20px; }
+        .title { font-size: 15px; font-weight: bold; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
         .data-box { display: flex; justify-content: space-around; text-align: center; }
-        .val { font-size: 32px; font-weight: bold; color: #1a73e8; }
-        .unit-label { font-size: 14px; color: #333; margin-left: 5px; font-weight: normal; }
-        .label-text { font-size: 13px; color: #888; margin-bottom: 10px; display: block; }
-        .setting-line { display: flex; justify-content: space-between; font-size: 14px; margin: 12px 0; color: #444; }
-        #diag-box { text-align: center; padding: 30px; border-radius: 10px; background: #f8f9fa; font-weight: bold; font-size: 22px; border: 1px solid #eee; transition: 0.3s; color: #999; }
+        .val { font-size: 34px; font-weight: bold; color: #1a73e8; }
+        .unit-text { font-size: 16px; color: #333; margin-left: 4px; font-weight: normal; }
+        .setting-line { display: flex; justify-content: space-between; font-size: 14px; margin: 10px 0; color: #555; }
+        #diag-box { text-align: center; padding: 25px; border-radius: 10px; background: #f8f9fa; font-weight: bold; font-size: 22px; border: 2px solid #eee; transition: 0.3s; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>🌊 水溝監測 Pro</h2>
+    <h2 style="text-align:center;">🌊 水溝監測 Pro</h2>
 
     <div class="card">
         <div class="title">📊 即時量測值</div>
         <div class="data-box">
             <div>
-                <span class="label-text">水位高度</span>
-                <span id="w-val" class="val">--</span><span class="unit-label">cm</span>
+                <div style="font-size:12px; color:#888;">水位高度</div>
+                <span id="w-val" class="val">--</span><span class="unit-text">cm</span>
             </div>
             <div>
-                <span class="label-text">理論流速</span>
-                <span id="f-val" class="val">--</span><span class="unit-label">cm/min</span>
+                <div style="font-size:12px; color:#888;">理論流速</div>
+                <span id="f-val" class="val">--</span><span class="unit-text">cm/min</span>
             </div>
         </div>
     </div>
@@ -46,46 +44,57 @@
 
     <div class="card">
         <div class="title">🚨 系統診斷結果</div>
-        <div id="diag-box">🏮 系統沒連到</div>
+        <div id="diag-box" style="color:#999;">🏮 系統沒連到</div>
     </div>
 </div>
 
 <script>
+    // 曼寧參數
     const n = 0.03, S = 0.001;
+    // 使用 WebSocket 協定連接
     const client = mqtt.connect('ws://broker.hivemq.com:8000/mqtt');
-    let offlineTimer;
+    let timer;
 
-    client.on('connect', () => { client.subscribe('yechenyin3032/water_data'); });
+    client.on('connect', () => {
+        console.log("已連上 MQTT 伺服器");
+        client.subscribe('yechenyin3032/water_data');
+    });
 
-    client.on('message', (t, msg) => {
-        clearTimeout(offlineTimer);
-        const h_cm = parseFloat(msg.toString());
+    client.on('message', (topic, message) => {
+        clearTimeout(timer);
+        const h_cm = parseFloat(message.toString());
         const h_m = h_cm / 100;
+
+        // 曼寧公式計算 (結果轉為 cm/min)
         let V_cm_min = 0;
         if (h_m > 0) {
             let Rh = h_m * 0.5;
             let V_m_s = (1.0 / n) * Math.pow(Rh, 2/3) * Math.sqrt(S);
-            V_cm_min = Math.round(V_m_s * 100 * 60); 
+            V_cm_min = Math.round(V_m_s * 100 * 60);
         }
 
+        // 更新數據與單位
         document.getElementById("w-val").innerText = h_cm.toFixed(1);
         document.getElementById("f-val").innerText = V_cm_min;
 
         const box = document.getElementById("diag-box");
-        // 四種狀態邏輯
+        // 三種判定邏輯
         if (h_cm >= 26.6 && V_cm_min < 4800) {
-            box.innerText = "❌ 偵測到管路堵塞"; box.style.color = "#fa8c16"; box.style.borderColor = "#fa8c16";
+            box.innerText = "❌ 偵測到管路堵塞";
+            box.style.color = "#fa8c16"; box.style.borderColor = "#fa8c16";
         } else if (V_cm_min > 18000) {
-            box.innerText = "⚠️ 偵測到水流湍急"; box.style.color = "#f5222d"; box.style.borderColor = "#f5222d";
+            box.innerText = "⚠️ 偵測到水流湍急";
+            box.style.color = "#f5222d"; box.style.borderColor = "#f5222d";
         } else {
-            box.innerText = "✅ 系統連線中無異常現象"; box.style.color = "#52c41a"; box.style.borderColor = "#52c41a";
+            box.innerText = "✅ 系統連線中無異常現象";
+            box.style.color = "#52c41a"; box.style.borderColor = "#52c41a";
         }
 
-        offlineTimer = setTimeout(() => {
-            box.innerText = "🏮 系統沒連到"; box.style.color = "#999"; box.style.borderColor = "#eee";
-            document.getElementById("w-val").innerText = "--";
-            document.getElementById("f-val").innerText = "--";
-        }, 3000);
+        // 5秒沒資料判定為「沒連到」
+        timer = setTimeout(() => {
+            box.innerText = "🏮 系統沒連到";
+            box.style.color = "#999"; box.style.borderColor = "#eee";
+        }, 5000);
     });
 </script>
 </body>
