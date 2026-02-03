@@ -11,7 +11,7 @@
         .title { font-size: 16px; font-weight: bold; margin-bottom: 15px; border-bottom: 2px solid #1a73e8; padding-bottom: 5px; }
         .data-display { display: flex; justify-content: space-around; text-align: center; }
         .num { font-size: 36px; font-weight: bold; color: #1a73e8; }
-        .unit { font-size: 18px; color: #333; font-weight: bold; margin-left: 5px; }
+        .unit-fixed { font-size: 18px; color: #333; font-weight: bold; margin-left: 5px; } /* 固定單位樣式 */
         .setting-line { display: flex; justify-content: space-between; margin: 10px 0; font-size: 14px; }
         #diag-box { text-align: center; padding: 25px; border-radius: 10px; background: #eee; font-weight: bold; font-size: 22px; border: 2px solid #ccc; }
     </style>
@@ -26,11 +26,11 @@
         <div class="data-display">
             <div>
                 <div style="color:#888;">水位高度</div>
-                <span id="w-val" class="num">--</span><span class="unit">cm</span>
+                <span id="w-val" class="num">--</span><span class="unit-fixed">cm</span>
             </div>
             <div>
                 <div style="color:#888;">理論流速</div>
-                <span id="f-val" class="num">--</span><span class="unit">cm/min</span>
+                <span id="f-val" class="num">--</span><span class="unit-fixed">cm/min</span>
             </div>
         </div>
     </div>
@@ -49,15 +49,12 @@
 </div>
 
 <script>
-    // 曼寧公式參數
     const n = 0.03, S = 0.001;
-    // 使用 HiveMQ WebSocket 服務
     const client = mqtt.connect('ws://broker.hivemq.com:8000/mqtt');
     let watchDog;
 
     client.on('connect', () => {
         client.subscribe('yechenyin3032/water_data');
-        console.log("MQTT Connected");
     });
 
     client.on('message', (topic, message) => {
@@ -65,7 +62,6 @@
         const h_cm = parseFloat(message.toString());
         const h_m = h_cm / 100;
 
-        // 計算流速 (曼寧公式)
         let v_cm_min = 0;
         if (h_m > 0) {
             let Rh = h_m * 0.5;
@@ -73,11 +69,10 @@
             v_cm_min = Math.round(v_m_s * 100 * 60);
         }
 
-        // 顯示數值
+        // 這次只更新數字，不會蓋掉單位
         document.getElementById("w-val").innerText = h_cm.toFixed(1);
         document.getElementById("f-val").innerText = v_cm_min;
 
-        // 狀態判定
         const box = document.getElementById("diag-box");
         if (h_cm >= 26.6 && v_cm_min < 4800) {
             box.innerText = "❌ 偵測到管路堵塞";
@@ -90,7 +85,6 @@
             box.style.color = "green"; box.style.background = "#e8f5e9"; box.style.borderColor = "green";
         }
 
-        // 5秒沒收到視為斷線
         watchDog = setTimeout(() => {
             box.innerText = "🏮 系統沒連到";
             box.style.color = "#999"; box.style.background = "#eee"; box.style.borderColor = "#ccc";
