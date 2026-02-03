@@ -51,13 +51,12 @@
     });
 
     client.on('message', (t, msg) => {
-        // 收到資料，清除斷線計時
-        clearTimeout(offlineTimer);
+        clearTimeout(offlineTimer); // 收到每秒回傳，清除斷線計時
         
         const h_cm = parseFloat(msg.toString());
         const h_m = h_cm / 100;
         
-        // 曼寧公式計算 (結果轉為 cm/min)
+        // 曼寧公式計算流速
         let V_cm_min = 0;
         if (h_m > 0) {
             let Rh = h_m * 0.5;
@@ -71,27 +70,33 @@
         const box = document.getElementById("diag-box");
         
         // --- 四種狀態診斷邏輯 ---
+        // 狀態 1：堵塞 (水位需滿 1/3 且 流速過低)
         if (h_cm >= 26.6 && V_cm_min < 4800) {
             box.innerText = "❌ 偵測到管路堵塞";
             box.style.color = "#fa8c16";
             box.style.borderColor = "#fa8c16";
-        } else if (V_cm_min > 18000) {
+        } 
+        // 狀態 2：湍急
+        else if (V_cm_min > 18000) {
             box.innerText = "⚠️ 偵測到水流湍急";
             box.style.color = "#f5222d";
             box.style.borderColor = "#f5222d";
-        } else {
+        } 
+        // 狀態 3：系統連線中無異常現象
+        else {
             box.innerText = "✅ 系統連線中無異常現象";
             box.style.color = "#52c41a";
             box.style.borderColor = "#52c41a";
         }
 
-        // 啟動 10 秒斷線計時 (狀態 1：系統沒連到)
+        // 狀態 4：系統沒連到 (若 5 秒沒收到資料則判定斷線)
         offlineTimer = setTimeout(() => {
             box.innerText = "🏮 系統沒連到";
             box.style.color = "#999";
             box.style.borderColor = "#eee";
-        }, 10000);
+        }, 5000);
     });
 </script>
 </body>
+</html>
 </html>
