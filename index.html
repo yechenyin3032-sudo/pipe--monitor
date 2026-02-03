@@ -9,10 +9,9 @@
         .container { max-width: 600px; margin: auto; background: white; padding: 25px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
         h2 { text-align: center; color: #333; margin-bottom: 20px; }
         .card { background: #fff; border: 1px solid #f0f0f0; border-radius: 10px; padding: 20px; margin-bottom: 20px; }
-        .title { font-size: 14px; font-weight: bold; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 5px; display: flex; align-items: center; }
+        .title { font-size: 14px; font-weight: bold; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
         .data-box { display: flex; justify-content: space-around; text-align: center; }
         .val { font-size: 30px; font-weight: bold; color: #1a73e8; }
-        .unit-label { font-size: 12px; color: #888; margin-top: 5px; }
         .setting-line { display: flex; justify-content: space-between; font-size: 13px; margin: 8px 0; color: #666; }
         #diag-box { text-align: center; padding: 25px; border-radius: 10px; background: #f8f9fa; font-weight: bold; font-size: 20px; border: 2px solid #eee; transition: 0.3s; color: #999; }
     </style>
@@ -25,19 +24,13 @@
     <div class="card">
         <div class="title">📊 即時量測值</div>
         <div class="data-box">
-            <div>
-                <span style="font-size:12px; color:#888;">水位高度</span><br>
-                <span id="w-val" class="val">--</span><small> cm</small>
-            </div>
-            <div>
-                <span style="font-size:12px; color:#888;">理論流速</span><br>
-                <span id="f-val" class="val">--</span><small> cm/min</small>
-            </div>
+            <div><span style="font-size:12px; color:#888;">水位高度</span><br><span id="w-val" class="val">--</span><small> cm</small></div>
+            <div><span style="font-size:12px; color:#888;">理論流速</span><br><span id="f-val" class="val">--</span><small> cm/min</small></div>
         </div>
     </div>
 
     <div class="card">
-        <div class="title">⚙️ 判定邏輯設定</div>
+        <div class="title">⚙️ 判定堵塞</div>
         <div class="setting-line"><span>總高設定值</span> <span>80 cm</span></div>
         <div class="setting-line"><span>堵塞警示條件</span> <span style="color:#fa8c16;">流速 < 4800 且 水位 ≥ 26.6cm</span></div>
         <div class="setting-line"><span>湍急警示條件</span> <span style="color:#f5222d;">流速 > 18000</span></div>
@@ -50,17 +43,15 @@
 </div>
 
 <script>
-    // 曼寧公式參數: n=粗糙係數, S=坡度
     const n = 0.03, S = 0.001;
     const client = mqtt.connect('ws://broker.hivemq.com:8000/mqtt');
     let offlineTimer;
 
-    // 初始狀態為「系統沒連到」
-    const setStatus = (text, color, border) => {
+    const updateStatus = (text, color, border) => {
         const box = document.getElementById("diag-box");
         box.innerText = text;
         box.style.color = color;
-        box.style.borderColor = border || "#eee";
+        box.style.borderColor = border;
     };
 
     client.on('connect', () => { 
@@ -68,7 +59,7 @@
     });
 
     client.on('message', (t, msg) => {
-        clearTimeout(offlineTimer); // 每秒收到資料時重置斷線計時
+        clearTimeout(offlineTimer);
         
         const h_cm = parseFloat(msg.toString());
         const h_m = h_cm / 100;
@@ -76,32 +67,31 @@
         // 曼寧公式計算 (V 單位轉換為 cm/min)
         let V_cm_min = 0;
         if (h_m > 0) {
-            let Rh = h_m * 0.5; // 水力半徑簡化
+            let Rh = h_m * 0.5;
             let V_m_s = (1.0 / n) * Math.pow(Rh, 2/3) * Math.sqrt(S);
             V_cm_min = Math.round(V_m_s * 100 * 60); 
         }
 
-        // 更新數據顯示
         document.getElementById("w-val").innerText = h_cm.toFixed(1);
         document.getElementById("f-val").innerText = V_cm_min;
 
-        // --- 四種狀態診斷邏輯 ---
-        // 1. 堵塞: 水位 >= 1/3總高(26.6) 且 流速 < 4800
+        // --- 四種狀態診斷邏輯修正 ---
         if (h_cm >= 26.6 && V_cm_min < 4800) {
-            setStatus("❌ 偵測到管路堵塞", "#fa8c16", "#fa8c16");
+            // 狀態 1: 堵塞 (水位夠高但流速太低)
+            updateStatus("❌ 偵測到管路堵塞", "#fa8c16", "#fa8c16");
         } 
-        // 2. 湍急: 流速 > 18000
         else if (V_cm_min > 18000) {
-            setStatus("⚠️ 偵測到水流湍急", "#f5222d", "#f5222d");
+            // 狀態 2: 湍急
+            updateStatus("⚠️ 偵測到水流湍急", "#f5222d", "#f5222d");
         } 
-        // 3. 系統連線中無異常現象
         else {
-            setStatus("✅ 系統連線中無異常現象", "#52c41a", "#52c41a");
+            // 狀態 3: 無異常
+            updateStatus("✅ 系統連線中無異常現象", "#52c41a", "#52c41a");
         }
 
-        // 4. 系統沒連到 (3秒內沒收到下一秒的資料則觸發)
+        // 狀態 4: 系統沒連到 (3秒沒收到資料觸發)
         offlineTimer = setTimeout(() => {
-            setStatus("🏮 系統沒連到", "#999", "#eee");
+            updateStatus("🏮 系統沒連到", "#999", "#eee");
             document.getElementById("w-val").innerText = "--";
             document.getElementById("f-val").innerText = "--";
         }, 3000);
