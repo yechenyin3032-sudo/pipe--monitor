@@ -2,92 +2,74 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>管路監測 Pro</title>
+    <title>水溝監測 Pro</title>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
-        body { font-family: -apple-system, sans-serif; background: #f4f7f9; padding: 20px; color: #333; }
-        .container { max-width: 500px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
-        h2 { font-size: 18px; text-align: center; color: #333; margin-bottom: 5px; }
-        .status-bar { font-size: 12px; text-align: center; margin-bottom: 20px; color: #888; }
-        
-        .section-title { font-size: 14px; font-weight: bold; margin-bottom: 10px; display: flex; align-items: center; }
-        .card { background: #fff; border: 1px solid #eee; border-radius: 8px; padding: 15px; margin-bottom: 15px; }
-        
-        .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; text-align: center; }
-        .val-big { font-size: 22px; font-weight: bold; color: #000; }
-        .label-small { font-size: 12px; color: #888; margin-bottom: 5px; }
-
-        .setting-row { display: flex; justify-content: space-between; font-size: 13px; margin: 5px 0; }
-        .blue-text { color: #1a73e8; font-weight: bold; }
-        .orange-text { color: #fa8c16; font-weight: bold; }
-        .red-text { color: #f5222d; font-weight: bold; }
-
-        #diag-box { text-align: center; padding: 15px; border-radius: 8px; background: #f8f9fa; font-weight: bold; border: 1px solid #eee; }
+        body { font-family: -apple-system, "微軟正黑體", sans-serif; background: #f4f7f9; padding: 20px; }
+        .container { max-width: 600px; margin: auto; background: white; padding: 25px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
+        h2 { text-align: center; color: #333; }
+        .card { background: #fff; border: 1px solid #f0f0f0; border-radius: 10px; padding: 20px; margin-bottom: 20px; }
+        .title { font-size: 14px; font-weight: bold; margin-bottom: 15px; display: flex; align-items: center; }
+        .data-box { display: flex; justify-content: space-around; text-align: center; }
+        .val { font-size: 26px; font-weight: bold; display: block; }
+        .unit { font-size: 13px; color: #888; }
+        .setting-line { display: flex; justify-content: space-between; font-size: 13px; margin: 8px 0; color: #444; }
+        .tag { font-weight: bold; padding: 2px 8px; border-radius: 4px; font-size: 12px; }
+        #diag-box { text-align: center; padding: 20px; border-radius: 10px; background: #f8f9fa; font-weight: bold; font-size: 18px; border: 1px solid #eee; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>📊 管路監測 Pro</h2>
-    <div class="status-bar" id="mqtt-status">● 搜尋設備中 (請檢查熱點)</div>
+    <h2>🌊 水溝監測 Pro</h2>
 
-    <div class="section-title">📊 即時量測值</div>
     <div class="card">
-        <div class="data-grid">
-            <div>
-                <div class="label-small">水位高度</div>
-                <span class="val-big" id="w-val">--</span> <small>cm</small>
-            </div>
-            <div>
-                <div class="label-small">理想流速</div>
-                <span class="val-big" id="f-val">--</span> <small>cm/min</small>
-            </div>
+        <div class="title">📊 即時量測值</div>
+        <div class="data-box">
+            <div><span class="unit">水位高度</span><span id="w-val" class="val">--</span><span class="unit">cm</span></div>
+            <div><span class="unit">理想流速</span><span id="f-val" class="val">--</span><span class="unit">cm/min</span></div>
         </div>
     </div>
 
-    <div class="section-title">⚙️ 判定邏輯設定</div>
     <div class="card">
-        <div class="setting-row"><span>水位判斷 (1/3總高)</span> <span class="blue-text">≥ 26.6 cm</span></div>
-        <div class="setting-row"><span>堵塞警示 (低流速)</span> <span class="orange-text">&lt; 4800</span></div>
-        <div class="setting-row"><span>湍急警示 (高流速)</span> <span class="red-text">&gt; 18000</span></div>
+        <div class="title">⚙️ 判定邏輯設定</div>
+        <div class="setting-line"><span>總高設定值</span> <span>80 cm</span></div>
+        <div class="setting-line"><span>堵塞警示條件</span> <span style="color:#fa8c16;">流速 < 4800 且 水位 ≥ 1/3 (26.6cm)</span></div>
+        <div class="setting-line"><span>湍急警示條件</span> <span style="color:#f5222d;">流速 > 18000</span></div>
     </div>
 
-    <div class="section-title">🚨 系統診斷結果</div>
-    <div id="diag-box">等待設備連線...</div>
+    <div class="card">
+        <div class="title">🚨 系統診斷結果</div>
+        <div id="diag-box" style="color:#999;">系統沒連到</div>
+    </div>
 </div>
 
 <script>
-    // 曼寧公式參數
-    const n = 0.03; 
-    const S = 0.001; 
-    const r_m = 0.2; 
-
+    // 曼寧公式設定
+    const n = 0.03, S = 0.001;
     const client = mqtt.connect('ws://broker.hivemq.com:8000/mqtt');
-    
-    client.on('connect', () => {
-        client.subscribe('yechenyin3032/water_data');
-        document.getElementById("mqtt-status").innerText = "● 系統連線正常";
-        document.getElementById("mqtt-status").style.color = "#52c41a";
-    });
+    let timer;
+
+    client.on('connect', () => { client.subscribe('yechenyin3032/water_data'); });
 
     client.on('message', (t, msg) => {
+        clearTimeout(timer); // 只要有收到資料，就取消「沒連到」的計時
         const h_cm = parseFloat(msg.toString());
         const h_m = h_cm / 100;
         
-        // 曼寧公式計算流速 (V 單位轉為 cm/min)
-        let V_m_s = 0;
+        // 曼寧公式計算 (V 單位 cm/min)
+        let V_cm_min = 0;
         if (h_m > 0) {
             let Rh = h_m * 0.5;
-            V_m_s = (1.0 / n) * Math.pow(Rh, 2/3) * Math.sqrt(S);
+            let V_m_s = (1.0 / n) * Math.pow(Rh, 2/3) * Math.sqrt(S);
+            V_cm_min = (V_m_s * 100 * 60).toFixed(0);
         }
-        let V_cm_min = (V_m_s * 100 * 60).toFixed(0);
 
-        // 更新顯示
         document.getElementById("w-val").innerText = h_cm.toFixed(1);
         document.getElementById("f-val").innerText = V_cm_min;
 
-        // 判定邏輯
         const box = document.getElementById("diag-box");
+        // 四種狀態判定
         if (h_cm >= 26.6 && V_cm_min < 4800) {
             box.innerText = "❌ 偵測到管路堵塞";
             box.style.color = "#fa8c16";
@@ -98,6 +80,12 @@
             box.innerText = "✅ 系統連線中無異常現象";
             box.style.color = "#52c41a";
         }
+
+        // 如果 10 秒內沒收到新資料，判定為斷線
+        timer = setTimeout(() => {
+            document.getElementById("diag-box").innerText = "🏮 系統沒連到";
+            document.getElementById("diag-box").style.color = "#999";
+        }, 10000);
     });
 </script>
 </body>
