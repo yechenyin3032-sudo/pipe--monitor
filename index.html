@@ -1,193 +1,112 @@
-好，這一題我直接幫你**做成「完整可交的文字版專題內容」**，結構是學校／科展／專題競賽都吃得下的那種。
-你可以**整段貼上用**，我已經幫你把語氣調成正式但不空泛。
-
----
-
-# 專題名稱（文字版）
-
-## **基於 ESP32 與 MQTT 雲端平台之水溝即時水位與水流狀態監測系統**
-
-（副標題，可選）
-
-> ——以 GitHub Pages 進行遠端監控與異常判斷之應用
-
----
-
-## 一、研究動機
-
-在都市排水系統中，水溝與排水管路常因落葉、垃圾或泥沙堆積而產生堵塞現象，
-若未能即時發現，容易造成積水、溢流甚至淹水等問題。
-現行多數排水設施仍仰賴人工巡檢，不僅耗費人力，也難以即時掌握水流狀態變化。
-
-隨著物聯網（IoT）與無線通訊技術的成熟，
-若能將感測設備安裝於水溝下方，並即時將水位數據傳送至雲端平台進行分析，
-即可遠端監控水流狀態，達到預警與即時判斷的目的。
-
-因此，本研究嘗試結合 ESP32、超音波感測器與 MQTT 雲端通訊技術，
-設計一套低成本、可即時監測水溝水位與水流狀態之系統。
-
----
-
-## 二、研究目的
-
-本專題之研究目的如下：
-
-1. 建立一套以 ESP32 為核心的水溝水位即時量測系統
-2. 透過 MQTT 協定將感測數據上傳至雲端平台
-3. 利用 GitHub Pages 建立即時監控網頁，顯示水位與水流狀態
-4. 依據水位與流速計算結果，判斷水溝狀態為「正常」、「可能堵塞」或「水流湍急」
-5. 驗證系統於實際環境中之可行性與穩定性
-
----
-
-## 三、市售產品調查
-
-目前市面上之水位或排水監測產品多具有以下特性：
-
-* 價格較高，主要應用於大型工程或工業場域
-* 系統封閉，資料難以自行擴充或二次分析
-* 多需專用平台，無法自由客製前端顯示方式
-
-相較之下，本作品具備以下優點：
-
-* 使用開源硬體與免費雲端平台，成本低廉
-* 系統架構開放，可依需求自行修改或擴充
-* 前端網頁可自行設計，適合教學與研究用途
-
----
-
-## 四、作品構想與系統設計
-
-### （一）作品構想說明
-
-本系統將感測模組放置於水溝下方之防水盒中，
-由超音波感測器量測水面高度，
-ESP32 將量測到的水位數據透過 WiFi 上傳至 MQTT Broker。
-
-前端監控網頁部署於 GitHub Pages，
-透過 WebSocket 即時訂閱資料，
-並依據曼寧公式計算理論水流速，
-最終判斷目前水溝狀態並顯示於網頁介面。
-
----
-
-### （二）系統流程圖（文字說明版）
-
-1. 超音波感測器量測水面高度
-2. ESP32 接收並計算水位數值
-3. ESP32 透過 WiFi 將資料發布至 MQTT Broker
-4. GitHub Pages 網頁訂閱 MQTT Topic
-5. 網頁即時顯示水位與計算水流速
-6. 系統依條件判斷水溝狀態並顯示結果
-
----
-
-### （三）整體資訊架構圖（文字描述）
-
-* 感測層：超音波感測器
-* 控制層：ESP32 微控制器
-* 通訊層：WiFi + MQTT Broker
-* 應用層：GitHub Pages 即時監控網頁
-
----
-
-## 五、硬體設備與經費規劃
-
-| 項目                       | 規格   | 預估單價（元）       |
-| ------------------------ | ---- | ------------- |
-| ESP32 Dev V1（CP2102，含天線） | 主控制器 | 236           |
-| 超音波感測器 JDNSR04T          | 防水型  | 197           |
-| 18650 鋰電池                | 電源供應 | 約 120         |
-| 18650 電池盒                | 單顆   | 約 50          |
-| 杜邦線、螺絲、熱縮管               | 零件耗材 | 約 100         |
-| 防水 3D 列印盒                | 自行列印 | 約 0～50        |
-| **合計**                   |      | **約 800 元以內** |
-
----
-
-## 六、工作分配與預定進度
-
-### （一）工作分配
-
-**沈冠臻、葉宸吟、廖姿羽（共同）：**
-
-* 系統架構討論
-* 元件採買
-* 場地勘查與實驗
-* 3D 列印盒設計與列印
-
-**廖姿羽：**
-
-* 文獻資料蒐集
-* 萬用電路板焊接
-* 元件與外殼組裝
-
-**沈冠臻：**
-
-* Arduino 程式撰寫
-* 元件配線
-* 系統模擬測試
-
-**葉宸吟：**
-
-* GitHub Pages 網頁製作
-* 前端程式與 MQTT Web 設定
-* 雲端資料模擬測試
-
----
-
-### （二）預定進度（簡述）
-
-1. 第 1 週：系統架構討論與元件採買
-2. 第 2 週：硬體組裝與程式撰寫
-3. 第 3 週：雲端與前端整合測試
-4. 第 4 週：實測、修正與成果整理
-
----
-
-## 七、預期結果
-
-1. 系統可即時顯示水位高度
-2. 能正確判斷水溝狀態（正常／堵塞／湍急）
-3. 可透過網頁遠端監控，不受地點限制
-4. 證明低成本設備亦可達成即時監測之可行性
-
----
-
-## 八、參考資料
-
-1. Manning, R. (1891). *On the flow of water in open channels and pipes.*
-2. MQTT 協定官方文件
-3. ESP32 官方技術資料
-4. HiveMQ Public Broker 使用說明
-
----
-
-## 九、理論基礎—曼寧公式
-
-曼寧公式用於估算明渠中水流平均流速，其公式如下：
-
-[
-v = \frac{1}{n} R^{2/3} S^{1/2}
-]
-
-其中：
-
-* ( v )：水流速度（m/s）
-* ( n )：曼寧粗糙係數
-* ( R )：水力半徑（m）
-* ( S )：水力坡度
-
-本研究利用該公式，
-由水位推算理論流速，作為水溝狀態判斷依據。
-
----
-
-如果你要，我可以**下一步直接幫你**：
-
-* 📄 改成「**學校專題正式格式**」
-* 📊 幫你把流程圖與架構圖畫成**圖片檔**
-* 🧾 幫你濃縮成 **簡報版 10 頁內容**
-
-你回我一句：
-👉「我要圖片流程圖」或「我要簡報版」
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>水溝流量監測系統</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js" type="text/javascript"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f9; text-align: center; padding: 20px; }
+        .dashboard { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; max-width: 800px; margin: 0 auto; }
+        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 200px; }
+        .card h3 { color: #555; margin-bottom: 10px; }
+        .value { font-size: 2.5em; font-weight: bold; color: #2c3e50; }
+        .unit { font-size: 1em; color: #888; }
+        #status { margin-top: 20px; color: #666; font-size: 0.9em; }
+        .status-dot { height: 10px; width: 10px; background-color: #bbb; border-radius: 50%; display: inline-block; margin-right: 5px; }
+        .connected { background-color: #2ecc71; }
+    </style>
+</head>
+<body>
+
+    <h1>🌊 水溝流量即時監測</h1>
+
+    <div class="dashboard">
+        <div class="card">
+            <h3>目前水位 (Level)</h3>
+            <div id="level-val" class="value">--</div>
+            <div class="unit">cm</div>
+        </div>
+        <div class="card">
+            <h3>估算流速 (Flow)</h3>
+            <div id="flow-val" class="value">--</div>
+            <div class="unit">m/s</div>
+        </div>
+        <div class="card">
+            <h3>感測距離 (Raw)</h3>
+            <div id="dist-val" class="value">--</div>
+            <div class="unit">cm</div>
+        </div>
+    </div>
+
+    <div id="status">
+        <span id="status-dot" class="status-dot"></span>
+        <span id="status-text">正在連接 MQTT Broker...</span>
+    </div>
+
+    <script>
+        // --- 設定區 (必須與 ESP32 一致) ---
+        const mqtt_broker = "broker.emqx.io";
+        const mqtt_port = 8084; // 8084 是 EMQX 的 WSS (SSL) 端口
+        const mqtt_topic = "my_ditch_project/data"; 
+        // --------------------------------
+
+        // 產生隨機 Client ID
+        const client_id = "Web_Client_" + Math.random().toString(16).substr(2, 8);
+        const client = new Paho.MQTT.Client(mqtt_broker, mqtt_port, client_id);
+
+        // 設定回調函數
+        client.onConnectionLost = onConnectionLost;
+        client.onMessageArrived = onMessageArrived;
+
+        // 連接選項
+        const options = {
+            useSSL: true, // GitHub Pages 強制 HTTPS，所以必須用 SSL
+            onSuccess: onConnect,
+            onFailure: onFailure,
+            keepAliveInterval: 30
+        };
+
+        // 開始連接
+        client.connect(options);
+
+        function onConnect() {
+            console.log("Connected to Broker");
+            document.getElementById("status-text").innerText = "已連線接收數據中";
+            document.getElementById("status-dot").classList.add("connected");
+            
+            // 訂閱主題
+            client.subscribe(mqtt_topic);
+        }
+
+        function onFailure(responseObject) {
+            console.log("Connection Failed: " + responseObject.errorMessage);
+            document.getElementById("status-text").innerText = "連線失敗，請重新整理";
+        }
+
+        function onConnectionLost(responseObject) {
+            if (responseObject.errorCode !== 0) {
+                console.log("Connection Lost: " + responseObject.errorMessage);
+                document.getElementById("status-dot").classList.remove("connected");
+                document.getElementById("status-text").innerText = "連線中斷";
+            }
+        }
+
+        function onMessageArrived(message) {
+            console.log("Data Received: " + message.payloadString);
+            try {
+                // 解析 JSON
+                const data = JSON.parse(message.payloadString);
+                
+                // 更新畫面
+                document.getElementById("dist-val").innerText = data.distance.toFixed(1);
+                document.getElementById("level-val").innerText = data.level.toFixed(1);
+                document.getElementById("flow-val").innerText = data.flow.toFixed(1);
+                
+            } catch (e) {
+                console.error("JSON Parse Error", e);
+            }
+        }
+    </script>
+</body>
+</html>
