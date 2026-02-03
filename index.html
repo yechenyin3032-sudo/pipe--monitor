@@ -1,88 +1,193 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-<meta charset="UTF-8">
-<title>水流監測 Pro</title>
+好，這一題我直接幫你**做成「完整可交的文字版專題內容」**，結構是學校／科展／專題競賽都吃得下的那種。
+你可以**整段貼上用**，我已經幫你把語氣調成正式但不空泛。
 
-<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+---
 
-<style>
-body { font-family: Arial; background:#f4f7f9; padding:20px; }
-.card { background:white; padding:20px; margin-bottom:20px; border-radius:10px; }
-.num { font-size:40px; font-weight:bold; }
-#diag-box { padding:20px; font-size:22px; text-align:center; border-radius:10px; }
-</style>
-</head>
+# 專題名稱（文字版）
 
-<body>
+## **基於 ESP32 與 MQTT 雲端平台之水溝即時水位與水流狀態監測系統**
 
-<h2>🌊 水流監測系統</h2>
+（副標題，可選）
 
-<div class="card">
-  <div>水位高度</div>
-  <span id="w-val" class="num">--</span> cm
-</div>
+> ——以 GitHub Pages 進行遠端監控與異常判斷之應用
 
-<div class="card">
-  <div>理論流速</div>
-  <span id="f-val" class="num">--</span> cm/min
-</div>
+---
 
-<div class="card">
-  <div id="diag-box">🔴 尚未接收到資料</div>
-</div>
+## 一、研究動機
 
-<script>
-const n = 0.03;
-const S = 0.001;
+在都市排水系統中，水溝與排水管路常因落葉、垃圾或泥沙堆積而產生堵塞現象，
+若未能即時發現，容易造成積水、溢流甚至淹水等問題。
+現行多數排水設施仍仰賴人工巡檢，不僅耗費人力，也難以即時掌握水流狀態變化。
 
-// ⚠️ 關鍵在這一行
-const client = mqtt.connect('wss://broker.hivemq.com:8884/mqtt');
+隨著物聯網（IoT）與無線通訊技術的成熟，
+若能將感測設備安裝於水溝下方，並即時將水位數據傳送至雲端平台進行分析，
+即可遠端監控水流狀態，達到預警與即時判斷的目的。
 
-let watchDog;
+因此，本研究嘗試結合 ESP32、超音波感測器與 MQTT 雲端通訊技術，
+設計一套低成本、可即時監測水溝水位與水流狀態之系統。
 
-client.on('connect', () => {
-  console.log("✅ Web MQTT 已連線");
-  client.subscribe('yechenyin3032/water_data');
-});
+---
 
-client.on('message', (topic, msg) => {
-  clearTimeout(watchDog);
+## 二、研究目的
 
-  const h_cm = parseFloat(msg.toString());
-  if (isNaN(h_cm)) return;
+本專題之研究目的如下：
 
-  const h_m = h_cm / 100;
-  let v_cm_min = 0;
+1. 建立一套以 ESP32 為核心的水溝水位即時量測系統
+2. 透過 MQTT 協定將感測數據上傳至雲端平台
+3. 利用 GitHub Pages 建立即時監控網頁，顯示水位與水流狀態
+4. 依據水位與流速計算結果，判斷水溝狀態為「正常」、「可能堵塞」或「水流湍急」
+5. 驗證系統於實際環境中之可行性與穩定性
 
-  if (h_m > 0) {
-    const Rh = h_m * 0.5;
-    const v_m_s = (1 / n) * Math.pow(Rh, 2/3) * Math.sqrt(S);
-    v_cm_min = Math.round(v_m_s * 100 * 60);
-  }
+---
 
-  document.getElementById("w-val").innerText = h_cm.toFixed(1);
-  document.getElementById("f-val").innerText = v_cm_min;
+## 三、市售產品調查
 
-  const box = document.getElementById("diag-box");
+目前市面上之水位或排水監測產品多具有以下特性：
 
-  if (h_cm >= 26.6 && v_cm_min < 4800) {
-    box.innerText = "❌ 可能堵塞";
-    box.style.color = "orange";
-  } else if (v_cm_min > 18000) {
-    box.innerText = "⚠️ 水流過快";
-    box.style.color = "red";
-  } else {
-    box.innerText = "✅ 系統正常";
-    box.style.color = "green";
-  }
+* 價格較高，主要應用於大型工程或工業場域
+* 系統封閉，資料難以自行擴充或二次分析
+* 多需專用平台，無法自由客製前端顯示方式
 
-  watchDog = setTimeout(() => {
-    box.innerText = "🔴 資料中斷";
-    box.style.color = "#999";
-  }, 5000);
-});
-</script>
+相較之下，本作品具備以下優點：
 
-</body>
-</html>
+* 使用開源硬體與免費雲端平台，成本低廉
+* 系統架構開放，可依需求自行修改或擴充
+* 前端網頁可自行設計，適合教學與研究用途
+
+---
+
+## 四、作品構想與系統設計
+
+### （一）作品構想說明
+
+本系統將感測模組放置於水溝下方之防水盒中，
+由超音波感測器量測水面高度，
+ESP32 將量測到的水位數據透過 WiFi 上傳至 MQTT Broker。
+
+前端監控網頁部署於 GitHub Pages，
+透過 WebSocket 即時訂閱資料，
+並依據曼寧公式計算理論水流速，
+最終判斷目前水溝狀態並顯示於網頁介面。
+
+---
+
+### （二）系統流程圖（文字說明版）
+
+1. 超音波感測器量測水面高度
+2. ESP32 接收並計算水位數值
+3. ESP32 透過 WiFi 將資料發布至 MQTT Broker
+4. GitHub Pages 網頁訂閱 MQTT Topic
+5. 網頁即時顯示水位與計算水流速
+6. 系統依條件判斷水溝狀態並顯示結果
+
+---
+
+### （三）整體資訊架構圖（文字描述）
+
+* 感測層：超音波感測器
+* 控制層：ESP32 微控制器
+* 通訊層：WiFi + MQTT Broker
+* 應用層：GitHub Pages 即時監控網頁
+
+---
+
+## 五、硬體設備與經費規劃
+
+| 項目                       | 規格   | 預估單價（元）       |
+| ------------------------ | ---- | ------------- |
+| ESP32 Dev V1（CP2102，含天線） | 主控制器 | 236           |
+| 超音波感測器 JDNSR04T          | 防水型  | 197           |
+| 18650 鋰電池                | 電源供應 | 約 120         |
+| 18650 電池盒                | 單顆   | 約 50          |
+| 杜邦線、螺絲、熱縮管               | 零件耗材 | 約 100         |
+| 防水 3D 列印盒                | 自行列印 | 約 0～50        |
+| **合計**                   |      | **約 800 元以內** |
+
+---
+
+## 六、工作分配與預定進度
+
+### （一）工作分配
+
+**沈冠臻、葉宸吟、廖姿羽（共同）：**
+
+* 系統架構討論
+* 元件採買
+* 場地勘查與實驗
+* 3D 列印盒設計與列印
+
+**廖姿羽：**
+
+* 文獻資料蒐集
+* 萬用電路板焊接
+* 元件與外殼組裝
+
+**沈冠臻：**
+
+* Arduino 程式撰寫
+* 元件配線
+* 系統模擬測試
+
+**葉宸吟：**
+
+* GitHub Pages 網頁製作
+* 前端程式與 MQTT Web 設定
+* 雲端資料模擬測試
+
+---
+
+### （二）預定進度（簡述）
+
+1. 第 1 週：系統架構討論與元件採買
+2. 第 2 週：硬體組裝與程式撰寫
+3. 第 3 週：雲端與前端整合測試
+4. 第 4 週：實測、修正與成果整理
+
+---
+
+## 七、預期結果
+
+1. 系統可即時顯示水位高度
+2. 能正確判斷水溝狀態（正常／堵塞／湍急）
+3. 可透過網頁遠端監控，不受地點限制
+4. 證明低成本設備亦可達成即時監測之可行性
+
+---
+
+## 八、參考資料
+
+1. Manning, R. (1891). *On the flow of water in open channels and pipes.*
+2. MQTT 協定官方文件
+3. ESP32 官方技術資料
+4. HiveMQ Public Broker 使用說明
+
+---
+
+## 九、理論基礎—曼寧公式
+
+曼寧公式用於估算明渠中水流平均流速，其公式如下：
+
+[
+v = \frac{1}{n} R^{2/3} S^{1/2}
+]
+
+其中：
+
+* ( v )：水流速度（m/s）
+* ( n )：曼寧粗糙係數
+* ( R )：水力半徑（m）
+* ( S )：水力坡度
+
+本研究利用該公式，
+由水位推算理論流速，作為水溝狀態判斷依據。
+
+---
+
+如果你要，我可以**下一步直接幫你**：
+
+* 📄 改成「**學校專題正式格式**」
+* 📊 幫你把流程圖與架構圖畫成**圖片檔**
+* 🧾 幫你濃縮成 **簡報版 10 頁內容**
+
+你回我一句：
+👉「我要圖片流程圖」或「我要簡報版」
