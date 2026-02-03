@@ -5,15 +5,15 @@
     <title>水溝監測 Pro</title>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
-        body { font-family: -apple-system, "微軟正黑體", sans-serif; background: #f4f7f9; padding: 20px; }
-        .container { max-width: 650px; margin: auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
+        body { font-family: "微軟正黑體", sans-serif; background: #f4f7f9; padding: 20px; }
+        .container { max-width: 600px; margin: auto; background: white; padding: 25px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
         .card { background: #fff; border: 1px solid #f0f0f0; border-radius: 10px; padding: 20px; margin-bottom: 20px; }
-        .title { font-size: 15px; font-weight: bold; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
-        .data-box { display: flex; justify-content: space-around; text-align: center; }
-        .val { font-size: 34px; font-weight: bold; color: #1a73e8; }
-        .unit-text { font-size: 16px; color: #333; margin-left: 4px; font-weight: normal; }
-        .setting-line { display: flex; justify-content: space-between; font-size: 14px; margin: 10px 0; color: #555; }
-        #diag-box { text-align: center; padding: 25px; border-radius: 10px; background: #f8f9fa; font-weight: bold; font-size: 22px; border: 2px solid #eee; transition: 0.3s; }
+        .title { font-size: 16px; font-weight: bold; margin-bottom: 15px; border-bottom: 2px solid #1a73e8; padding-bottom: 5px; }
+        .data-display { display: flex; justify-content: space-around; text-align: center; }
+        .num { font-size: 36px; font-weight: bold; color: #1a73e8; }
+        .unit { font-size: 18px; color: #333; font-weight: bold; margin-left: 5px; }
+        .setting-line { display: flex; justify-content: space-between; margin: 10px 0; font-size: 14px; }
+        #diag-box { text-align: center; padding: 25px; border-radius: 10px; background: #eee; font-weight: bold; font-size: 22px; border: 2px solid #ccc; }
     </style>
 </head>
 <body>
@@ -23,77 +23,79 @@
 
     <div class="card">
         <div class="title">📊 即時量測值</div>
-        <div class="data-box">
+        <div class="data-display">
             <div>
-                <div style="font-size:12px; color:#888;">水位高度</div>
-                <span id="w-val" class="val">--</span><span class="unit-text">cm</span>
+                <div style="color:#888;">水位高度</div>
+                <span id="w-val" class="num">--</span><span class="unit">cm</span>
             </div>
             <div>
-                <div style="font-size:12px; color:#888;">理論流速</div>
-                <span id="f-val" class="val">--</span><span class="unit-text">cm/min</span>
+                <div style="color:#888;">理論流速</div>
+                <span id="f-val" class="num">--</span><span class="unit">cm/min</span>
             </div>
         </div>
     </div>
 
     <div class="card">
         <div class="title">⚙️ 判定邏輯設定</div>
-        <div class="setting-line"><span>總高設定值</span> <span>80 cm</span></div>
-        <div class="setting-line"><span>堵塞警示條件</span> <span style="color:#fa8c16;">流速 < 4800 且 水位 ≥ 26.6cm</span></div>
-        <div class="setting-line"><span>湍急警示條件</span> <span style="color:#f5222d;">流速 > 18000</span></div>
+        <div class="setting-line"><span>總高設定值</span> <b>80 cm</b></div>
+        <div class="setting-line"><span>堵塞警示條件</span> <span style="color:orange;">流速 < 4800 且 水位 ≥ 26.6cm</span></div>
+        <div class="setting-line"><span>湍急警示條件</span> <span style="color:red;">流速 > 18000</span></div>
     </div>
 
     <div class="card">
         <div class="title">🚨 系統診斷結果</div>
-        <div id="diag-box" style="color:#999;">🏮 系統沒連到</div>
+        <div id="diag-box">🏮 系統沒連到</div>
     </div>
 </div>
 
 <script>
-    // 曼寧參數
+    // 曼寧公式參數
     const n = 0.03, S = 0.001;
-    // 使用 WebSocket 協定連接
+    // 使用 HiveMQ WebSocket 服務
     const client = mqtt.connect('ws://broker.hivemq.com:8000/mqtt');
-    let timer;
+    let watchDog;
 
     client.on('connect', () => {
-        console.log("已連上 MQTT 伺服器");
         client.subscribe('yechenyin3032/water_data');
+        console.log("MQTT Connected");
     });
 
     client.on('message', (topic, message) => {
-        clearTimeout(timer);
+        clearTimeout(watchDog);
         const h_cm = parseFloat(message.toString());
         const h_m = h_cm / 100;
 
-        // 曼寧公式計算 (結果轉為 cm/min)
-        let V_cm_min = 0;
+        // 計算流速 (曼寧公式)
+        let v_cm_min = 0;
         if (h_m > 0) {
             let Rh = h_m * 0.5;
-            let V_m_s = (1.0 / n) * Math.pow(Rh, 2/3) * Math.sqrt(S);
-            V_cm_min = Math.round(V_m_s * 100 * 60);
+            let v_m_s = (1.0 / n) * Math.pow(Rh, 2/3) * Math.sqrt(S);
+            v_cm_min = Math.round(v_m_s * 100 * 60);
         }
 
-        // 更新數據與單位
+        // 顯示數值
         document.getElementById("w-val").innerText = h_cm.toFixed(1);
-        document.getElementById("f-val").innerText = V_cm_min;
+        document.getElementById("f-val").innerText = v_cm_min;
 
+        // 狀態判定
         const box = document.getElementById("diag-box");
-        // 三種判定邏輯
-        if (h_cm >= 26.6 && V_cm_min < 4800) {
+        if (h_cm >= 26.6 && v_cm_min < 4800) {
             box.innerText = "❌ 偵測到管路堵塞";
-            box.style.color = "#fa8c16"; box.style.borderColor = "#fa8c16";
-        } else if (V_cm_min > 18000) {
+            box.style.color = "orange"; box.style.background = "#fff3e0"; box.style.borderColor = "orange";
+        } else if (v_cm_min > 18000) {
             box.innerText = "⚠️ 偵測到水流湍急";
-            box.style.color = "#f5222d"; box.style.borderColor = "#f5222d";
+            box.style.color = "red"; box.style.background = "#ffebee"; box.style.borderColor = "red";
         } else {
             box.innerText = "✅ 系統連線中無異常現象";
-            box.style.color = "#52c41a"; box.style.borderColor = "#52c41a";
+            box.style.color = "green"; box.style.background = "#e8f5e9"; box.style.borderColor = "green";
         }
 
-        // 5秒沒資料判定為「沒連到」
-        timer = setTimeout(() => {
+        // 5秒沒收到視為斷線
+        watchDog = setTimeout(() => {
             box.innerText = "🏮 系統沒連到";
-            box.style.color = "#999"; box.style.borderColor = "#eee";
+            box.style.color = "#999"; box.style.background = "#eee"; box.style.borderColor = "#ccc";
+            document.getElementById("w-val").innerText = "--";
+            document.getElementById("f-val").innerText = "--";
         }, 5000);
     });
 </script>
