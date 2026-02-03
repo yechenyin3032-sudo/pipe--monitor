@@ -3,62 +3,75 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🌊 管路監測系統 Pro</title>
+    <title>🌊 管路監測 Pro</title>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
-        body { font-family: sans-serif; background-color: #f0f2f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .container { background: white; padding: 40px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); width: 90%; max-width: 500px; text-align: center; }
-        h1 { color: #1a73e8; margin-bottom: 5px; }
-        #status-tag { display: inline-block; padding: 5px 15px; border-radius: 20px; font-size: 14px; background: #fff1f0; color: #cf1322; margin-bottom: 20px; }
-        .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 20px 0; }
-        .card { background: #f8f9fa; padding: 20px; border-radius: 15px; border-top: 4px solid #1a73e8; }
-        .val { font-size: 32px; font-weight: bold; display: block; margin: 10px 0; }
-        .diagnosis { background: #e8f0fe; padding: 15px; border-radius: 10px; font-weight: bold; color: #1967d2; }
+        body { font-family: -apple-system, sans-serif; background-color: #f4f7f9; padding: 20px; color: #333; }
+        .container { max-width: 500px; margin: auto; background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        h2 { font-size: 18px; text-align: center; color: #1a73e8; }
+        .status-bar { font-size: 12px; text-align: center; margin-bottom: 20px; color: #666; }
+        
+        .section-title { font-size: 14px; font-weight: bold; margin-bottom: 10px; display: flex; align-items: center; }
+        .card { background: #fdfdfd; border: 1px solid #f0f0f0; border-radius: 10px; padding: 15px; margin-bottom: 20px; }
+        
+        .data-row { display: flex; justify-content: space-between; align-items: center; margin: 10px 0; }
+        .val-big { font-size: 24px; font-weight: bold; color: #1a73e8; }
+        .unit { font-size: 14px; color: #888; margin-left: 5px; }
+
+        .setting-row { display: flex; justify-content: space-between; font-size: 13px; margin: 8px 0; color: #555; }
+        .threshold { font-weight: bold; color: #1a73e8; }
+
+        #diag-box { text-align: center; padding: 15px; border-radius: 10px; background: #f8f9fa; font-weight: bold; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>🌊 管路監測系統 Pro</h1>
-    <div id="status-tag">● 雲端嘗試連線中...</div>
+    <h2>🌊 管路監測 Pro</h2>
+    <div class="status-bar" id="mqtt-status">☁️ 雲端嘗試連線中...</div>
 
-    <div class="data-grid">
-        <div class="card">
-            <span style="color: #5f6368;">目前水位</span>
-            <span id="w-val" class="val">--</span>
-            <span style="color: #5f6368;">cm</span>
-        </div>
-        <div class="card">
-            <span style="color: #5f6368;">預估流速</span>
-            <span class="val">0.00</span>
-            <span style="color: #5f6368;">m/s</span>
+    <div class="section-title">📊 即時量測值</div>
+    <div class="card">
+        <div style="display: flex; justify-content: space-around; text-align: center;">
+            <div>
+                <div style="font-size: 12px; color: #888;">水位高度</div>
+                <div><span class="val-big" id="w-val">--</span><span class="unit">cm</span></div>
+            </div>
+            <div>
+                <div style="font-size: 12px; color: #888;">理想流速</div>
+                <div><span class="val-big">--</span><span class="unit">cm/min</span></div>
+            </div>
         </div>
     </div>
 
-    <div class="diagnosis">
-        系統診斷結果：<span id="d-msg">等待數據中...</span>
+    <div class="section-title">⚙️ 判定邏輯設定</div>
+    <div class="card">
+        <div class="setting-row"><span>水位判斷 (1/3總高)</span> <span class="threshold">≥ 26.6 cm</span></div>
+        <div class="setting-row"><span>堵塞警示 (低流速)</span> <span style="color:#fa8c16;">&lt; 4800</span></div>
+        <div class="setting-row"><span>漏急警示 (高流速)</span> <span style="color:#f5222d;">&gt; 18000</span></div>
     </div>
+
+    <div class="section-title">🚨 系統診斷結果</div>
+    <div id="diag-box">等待設備數據中...</div>
 </div>
 
 <script>
     const client = mqtt.connect('ws://broker.hivemq.com:8000/mqtt');
-    const myTopic = "yechenyin3032/water_data";
+    const topic = 'yechenyin3032/water_data';
 
     client.on('connect', () => {
-        client.subscribe(myTopic);
-        const tag = document.getElementById("status-tag");
-        tag.innerText = "● 雲端即時連線中";
-        tag.style.background = "#f6ffed";
-        tag.style.color = "#389e0d";
+        client.subscribe(topic);
+        document.getElementById("mqtt-status").innerText = "● 雲端已連線 (不限網域)";
+        document.getElementById("mqtt-status").style.color = "#52c41a";
     });
 
-    client.on('message', (topic, message) => {
-        const data = JSON.parse(message.toString());
+    client.on('message', (t, msg) => {
+        const data = JSON.parse(msg.toString());
         document.getElementById("w-val").innerText = data.level;
-        document.getElementById("d-msg").innerText = data.msg;
-        
-        // 如果水位高於 26.6cm (1/3 高) 變色提醒
-        document.getElementById("d-msg").style.color = (parseFloat(data.level) >= 26.6) ? "#d93025" : "#1967d2";
+        const box = document.getElementById("diag-box");
+        box.innerText = data.msg;
+        box.style.background = (parseFloat(data.level) >= 26.6) ? "#fff1f0" : "#f6ffed";
+        box.style.color = (parseFloat(data.level) >= 26.6) ? "#cf1322" : "#389e0d";
     });
 </script>
 
