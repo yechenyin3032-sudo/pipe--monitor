@@ -5,44 +5,46 @@
     <title>🌊 管路監測系統 Pro</title>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
-        body { font-family: sans-serif; background: #f0f2f5; padding: 20px; color: #333; }
-        .container { max-width: 500px; margin: auto; background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        .card { background: #f8f9fa; border-radius: 10px; padding: 15px; margin-bottom: 20px; border-left: 5px solid #1a73e8; }
-        .val-big { font-size: 32px; font-weight: bold; color: #1a73e8; }
-        .diagnosis { padding: 15px; border-radius: 10px; font-weight: bold; text-align: center; }
-        .param-text { font-size: 13px; color: #666; line-height: 1.6; }
+        body { font-family: -apple-system, sans-serif; background: #f0f2f5; padding: 20px; display: flex; justify-content: center; }
+        .container { width: 100%; max-width: 500px; background: white; padding: 25px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        .header { text-align: center; color: #1a73e8; margin-bottom: 20px; }
+        .card { background: #f8f9fa; border-radius: 15px; padding: 20px; margin-bottom: 15px; border-left: 6px solid #1a73e8; }
+        .val-display { display: flex; justify-content: space-around; text-align: center; }
+        .big-num { font-size: 36px; font-weight: bold; color: #1a73e8; display: block; }
+        .unit { font-size: 14px; color: #888; }
+        .settings { font-size: 13px; color: #666; line-height: 1.8; }
+        .diagnosis { padding: 15px; border-radius: 12px; font-weight: bold; text-align: center; font-size: 18px; transition: 0.3s; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2 style="text-align:center;">🌊 管路監測系統 Pro</h2>
-    <p id="status" style="text-align:center; font-size:12px; color:red;">● 雲端連線中...</p>
+    <div class="header">
+        <h2>🌊 管路監測系統</h2>
+        <span id="mqtt-status" style="font-size: 12px; color: #d93025;">● 雲端嘗試連線中...</span>
+    </div>
 
     <div class="card">
-        <div style="display:flex; justify-content:space-around; text-align:center;">
+        <div style="font-size: 14px; color: #5f6368; margin-bottom: 10px;">📊 即時量測值 (總高 80cm)</div>
+        <div class="val-display">
             <div>
-                <div style="font-size:12px;">即時水位</div>
-                <span class="val-big" id="w-val">--</span><span style="font-size:14px;"> cm</span>
+                <span class="big-num" id="w-val">--</span><span class="unit">cm (水位)</span>
             </div>
             <div>
-                <div style="font-size:12px;">理論流速 (V)</div>
-                <span class="val-big" id="f-val">--</span><span style="font-size:14px;"> m/s</span>
+                <span class="big-num" id="f-val">--</span><span class="unit">m/s (流速)</span>
             </div>
         </div>
     </div>
 
     <div class="card">
-        <strong>⚙️ 曼寧公式參數設定</strong>
-        <div class="param-text">
-            粗糙係數 (n): 0.03<br>
-            管路半徑 (r): 20 cm<br>
-            設計坡度 (S): 0.001<br>
-            公式: V = (1/n) * R^(2/3) * S^(1/2)
+        <div style="font-size: 14px; font-weight: bold; margin-bottom: 5px;">⚙️ 判定邏輯設定 (曼寧公式)</div>
+        <div class="settings">
+            粗糙係數 (n): 0.03 | 坡度 (S): 0.001<br>
+            管路半徑 (r): 20 cm | 水位警戒: 26.6 cm
         </div>
     </div>
 
-    <div id="diag-box" class="diagnosis" style="background:#eee;">等待數據中...</div>
+    <div id="diag-box" class="diagnosis" style="background: #eee;">等待數據中...</div>
 </div>
 
 <script>
@@ -51,9 +53,9 @@
 
     client.on('connect', () => {
         client.subscribe(topic);
-        const status = document.getElementById("status");
-        status.innerText = "● 雲端連線正常 (不限網域)";
-        status.style.color = "green";
+        const st = document.getElementById("mqtt-status");
+        st.innerText = "● 雲端連線正常 (不限網域)";
+        st.style.color = "#137333";
     });
 
     client.on('message', (t, msg) => {
@@ -64,11 +66,17 @@
         const box = document.getElementById("diag-box");
         box.innerText = data.msg;
 
+        // 變換顏色
         if(data.msg.includes("✅")) {
-            box.style.background = "#f6ffed"; box.style.color = "#389e0d";
+            box.style.background = "#e6f4ea"; box.style.color = "#137333";
         } else {
-            box.style.background = "#fff1f0"; box.style.color = "#cf1322";
+            box.style.background = "#fce8e6"; box.style.color = "#d93025";
         }
+    });
+</script>
+
+</body>
+</html>
     });
 </script>
 </body>
